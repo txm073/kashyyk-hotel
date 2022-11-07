@@ -13,7 +13,7 @@
 
 // Booking struct
 typedef struct {
-    char firstName[NAME_LEN], lastName[NAME_LEN], dob[8], id[NAME_LEN + NRAND_DIGITS], boardType[2];
+    char *firstName, *lastName, *dob, *id, *boardType;
     int nDays, nAdults, nChildren, paper, roomNum;
 } Booking;
 
@@ -107,21 +107,22 @@ int parseCSV(char* data, Booking bookings[N_ROOMS])
         int fieldIdx = 0;
         char* field = strtok(record, ",");
         while (field != NULL) {
-            if (fieldIdx == firstName) strncpy(booking->firstName, field, NAME_LEN);
-            if (fieldIdx == lastName) strncpy(booking->lastName, field, NAME_LEN);
-            if (fieldIdx == dob) strncpy(booking->dob, field, 8);
-            if (fieldIdx == id) strncpy(booking->id, field, NAME_LEN + NRAND_DIGITS);
+            if (fieldIdx == firstName) booking->firstName = field;
+            if (fieldIdx == lastName) booking->lastName = field;
+            if (fieldIdx == dob) booking->dob = field;
+            if (fieldIdx == id) booking->id = field;
             if (fieldIdx == nDays) booking->nDays = atoi(field);
             if (fieldIdx == nAdults) booking->nAdults = atoi(field);
             if (fieldIdx == nChildren) booking->nChildren = atoi(field);
             if (fieldIdx == paper) booking->paper = atoi(field);
             if (fieldIdx == roomNum) booking->roomNum = atoi(field);
-            if (fieldIdx == boardType) strncpy(booking->boardType, field, 2);
+            if (fieldIdx == boardType) booking->boardType = field;
             field = strtok(NULL, ",");
             fieldIdx++;
         }
+
     }
-    return idx - 1;
+    return idx > 1 ? idx - 1 : idx;
 }
 
 int loadBookingData(const char* filename, Booking bookings[N_ROOMS])
@@ -138,6 +139,7 @@ int loadBookingData(const char* filename, Booking bookings[N_ROOMS])
             fclose(f);
             f = fopen(filename, "r");    
         } else {
+            printf("error!\n");
             return 0;
         }
     }
@@ -197,7 +199,20 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
 // Check in function (Orin)
 void checkIn()
 {
-    Booking booking;
+    Booking bookings[N_ROOMS];
+    int nResults = loadBookingData("bookings.csv", bookings);
+    for (int i = 0; i < nResults; i++) {
+        printf("%s\n", bookings[i].firstName);
+        printf("%s\n", bookings[i].lastName);
+        printf("%s\n", bookings[i].dob);
+        printf("%s\n", bookings[i].id);
+        printf("%d\n", bookings[i].nDays);
+        printf("%d\n", bookings[i].nAdults);
+        printf("%d\n", bookings[i].nChildren);
+        printf("%d\n", bookings[i].paper);
+        printf("%d\n", bookings[i].roomNum);
+        printf("%s\n", bookings[i].boardType);
+    }
     printf("checking in...\n");
 }
 
