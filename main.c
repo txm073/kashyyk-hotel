@@ -5,16 +5,20 @@
 #include <math.h>
 
 #define N_ROOMS 6
+#define N_TABLES 3
+#define N_RAND_DIGITS 3
+#define N_TIMESLOTS 2
+#define INVALID_TABLE_ENTRY 0
+#define TABLE_UNAVAILABLE 0
 #define FILE_DOES_NOT_EXIST 2
 #define LINE_LENGTH 256
 #define NAME_LEN 100
-#define NRAND_DIGITS 3
 #define MAX_BUFSIZE 6 * (3 * NAME_LEN + 64)
 
 // Booking struct
 typedef struct {
     char *firstName, *lastName, *dob, *id, *boardType;
-    int nDays, nAdults, nChildren, paper, roomNum;
+    int nDays, nAdults, nChildren, paper, roomNum, tableNum, tableSlot;
 } Booking;
 
 // The order of the fields in the CSV file
@@ -23,13 +27,22 @@ typedef enum {
     lastName,
     dob,
     id,
+    boardType,
     nDays,
     nAdults,
     nChildren,
     paper,
     roomNum,
-    boardType
+    tableNum,
+    tableSlot
 } BookingOrder;
+
+// Tables
+typedef enum {
+    Endor    = 1,
+    Naboo    = 2,
+    Tatooine = 3
+} Tables;
 
 // Prices for each room
 static int prices[N_ROOMS] = { 100, 100, 85, 75, 75, 50 };
@@ -42,6 +55,14 @@ void removeNewLine(char* s) {
             ++d;
         }
     } while (*s++ = *d++);
+}
+
+char* getTableName(Tables table, int pad)
+{
+    if (table == Endor) return (pad ? "Endor   " : "Endor");
+    if (table == Naboo) return (pad ? "Naboo   " : "Naboo");
+    if (table == Tatooine) return "Tatooine";
+    return NULL;
 }
 
 void checkInvalidChars(char* str, const char* chars)
@@ -102,6 +123,9 @@ int parseCSV(char* data, Booking bookings[N_ROOMS])
     }
     for (int i = 0; i < idx; ++i) {
         Booking* booking = (bookings + i);
+        // Optional fields with default values
+        booking->tableNum = -1;
+        booking->tableSlot = -1;
         char* record = strdup(records[i]);
         removeNewLine(record);
         int fieldIdx = 0;
@@ -111,12 +135,14 @@ int parseCSV(char* data, Booking bookings[N_ROOMS])
             if (fieldIdx == lastName) booking->lastName = field;
             if (fieldIdx == dob) booking->dob = field;
             if (fieldIdx == id) booking->id = field;
+            if (fieldIdx == boardType) booking->boardType = field;
             if (fieldIdx == nDays) booking->nDays = atoi(field);
             if (fieldIdx == nAdults) booking->nAdults = atoi(field);
             if (fieldIdx == nChildren) booking->nChildren = atoi(field);
             if (fieldIdx == paper) booking->paper = atoi(field);
             if (fieldIdx == roomNum) booking->roomNum = atoi(field);
-            if (fieldIdx == boardType) booking->boardType = field;
+            if (fieldIdx == tableNum) booking->tableNum = atoi(field);
+            if (fieldIdx == tableSlot) booking->tableSlot = atoi(field);
             field = strtok(NULL, ",");
             fieldIdx++;
         }
@@ -174,6 +200,8 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
         concatStr(buffer, delim, &charIdx);
         concatStr(buffer, booking.id, &charIdx);
         concatStr(buffer, delim, &charIdx);
+        concatStr(buffer, booking.boardType, &charIdx);
+        concatStr(buffer, delim, &charIdx);
         concatStr(buffer, intToString(booking.nDays), &charIdx);
         concatStr(buffer, delim, &charIdx);
         concatStr(buffer, intToString(booking.nAdults), &charIdx);
@@ -183,8 +211,12 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
         concatStr(buffer, intToString(booking.paper), &charIdx);
         concatStr(buffer, delim, &charIdx);
         concatStr(buffer, intToString(booking.roomNum), &charIdx);
-        concatStr(buffer, delim, &charIdx);
-        concatStr(buffer, booking.boardType, &charIdx);
+        if (booking.tableNum != INVALID_TABLE_ENTRY && booking.tableSlot != INVALID_TABLE_ENTRY) {
+            concatStr(buffer, delim, &charIdx);
+            concatStr(buffer, intToString(booking.tableNum), &charIdx);
+            concatStr(buffer, delim, &charIdx);
+            concatStr(buffer, intToString(booking.tableSlot), &charIdx);
+        }
         concatStr(buffer, lineBreak, &charIdx);
     }
     FILE* f = fopen(filename, "w");
@@ -201,49 +233,123 @@ void checkIn()
 {
     Booking bookings[N_ROOMS];
     int nResults = loadBookingData("bookings.csv", bookings);
-    for (int i = 0; i < nResults; i++) {
-        printf("%s\n", bookings[i].firstName);
-        printf("%s\n", bookings[i].lastName);
-        printf("%s\n", bookings[i].dob);
-        printf("%s\n", bookings[i].id);
-        printf("%d\n", bookings[i].nDays);
-        printf("%d\n", bookings[i].nAdults);
-        printf("%d\n", bookings[i].nChildren);
-        printf("%d\n", bookings[i].paper);
-        printf("%d\n", bookings[i].roomNum);
-        printf("%s\n", bookings[i].boardType);
-    }
+    printf("%d\n", bookings[nResults - 1].tableNum);
     printf("checking in...\n");
 }
 
 // Check out function (Mikhail)
-void checkOut(Booking booking)
+void checkOut()
 {
     printf("checking out...\n");
 }
 
 // Table booking function (Tom)
-void bookTable(Booking booking)
+void bookTable()
 {
-    printf("booking table...\n");
+    // Load booking data
+    Booking bookings[N_ROOMS];
+    int nBookings = loadBookingData("bookings.csv", bookings), bookingIdx = -1;
+    // Create a 2D array of all possible booking slots at each table
+    int timeSlots[N_TIMESLOTS] = { 7, 9 };
+    int tables[N_TABLES] = { Endor, Naboo, Tatooine };
+    int tablesAvailable[N_TIMESLOTS][N_TABLES] = { { Endor, Naboo, Tatooine }, { Endor, Naboo, Tatooine } };
+    // Check booking ID
+    char bookingId[NAME_LEN + N_RAND_DIGITS];
+    printf("In order to book a table, please enter your booking ID: ");
+    scanf("%s", &bookingId);
+    fflush(stdin);
+    for (int i = 0; i < nBookings; ++i) {
+        for (int timeSlotIdx = 0; timeSlotIdx < N_TIMESLOTS; ++timeSlotIdx) {
+            for (int tableIdx = 0; tableIdx < N_TABLES; ++tableIdx) {
+                if (timeSlots[timeSlotIdx] == bookings[i].tableSlot && tables[tableIdx] == bookings[i].tableNum) {
+                    tablesAvailable[timeSlotIdx][tableIdx] = TABLE_UNAVAILABLE;
+                }
+            }
+        } 
+        if (strcmp(bookings[i].id, bookingId) == 0) {
+            bookingIdx = i;
+            break;
+        }
+    }
+    if (bookingIdx == -1) {
+        printf("Sorry, that is an invalid booking ID, you cannot book a table.\n");
+        return;
+    } else if (bookings[bookingIdx].boardType == "BB") {
+        printf("Sorry, you are booked in for Bed & Breakfast, meaning you cannot book a dinner table.\n");
+        return;
+    } else if (bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY || bookings[bookingIdx].tableSlot != INVALID_TABLE_ENTRY) {
+        printf("Sorry, you already have a table booked. You cannot book another one.\n");
+        return;
+    }
+    int confirmChoice = 0;
+    while (!confirmChoice) {
+        // Display available tables
+        printf("Available tables: \n-----------------\n");
+        int idx = 0, newIdx = 0, tableChoice;
+        for (int i = 0; i < N_TIMESLOTS; ++i) {
+            for (int j = 0; j < N_TABLES; ++j) {
+                if (tablesAvailable[i][j] == TABLE_UNAVAILABLE) continue;
+                printf("%d: %s | %d:00pm | Serves 4\n", idx + 1, getTableName(tablesAvailable[i][j], 1), (timeSlots[i] + 12) % 24);
+                idx++;
+            }
+        }
+        printf("\n");
+        do {
+            printf("Please select the table you want (1-%d): ", idx);
+            scanf("%d", &tableChoice);
+            fflush(stdin);
+        } while (1 > tableChoice || tableChoice > idx);
+        
+        int tempTableNum = 0, tempTableSlot = 0;
+        for (int i = 0; i < N_TIMESLOTS; ++i) {
+            for (int j = 0; j < N_TABLES; ++j) {
+                if (tableChoice == newIdx + 1) {
+                    tempTableNum = tablesAvailable[i][j];
+                    tempTableSlot = timeSlots[i];
+                }
+                newIdx++;
+            }
+        }
+        printf(
+            "You have selected: %s at %d:00pm\n", 
+            getTableName(tempTableNum, 0), 
+            (tempTableSlot + 12) % 24
+        );
+        char choice;
+        do {
+            printf("Would you like to confirm your booking? (Y/N) ");
+            scanf("%c", &choice);
+            fflush(stdin);
+        } while (choice != 'Y' && choice != 'N' && choice != 'y' && choice != 'n');
+        if (choice == 'Y' || choice == 'y') {
+            bookings[bookingIdx].tableNum = tempTableNum;
+            bookings[bookingIdx].tableSlot = tempTableSlot;
+            confirmChoice = 1;
+        }
+    }
+    saveBookingData("bookings.csv", bookings, nBookings);
+    printf(
+        "Successfully booked a table for %s at %d:00pm\n", 
+        getTableName(bookings[bookingIdx].tableNum, 0), 
+        (bookings[bookingIdx].tableSlot + 12) % 24
+    );
 }
 
 // Main user interface
 int main(const int argc, const char** argv) 
 {
     char option[32];
-    printf("Choose an action: (checkin, checkout, booktable) ");
+    printf("Choose an action (checkin, checkout, booktable): ");
     scanf("%s", &option);
-    Booking booking;
         
     if (strcmp((const char*)option, "checkin") == 0) {
         checkIn();
 
     } else if (strcmp((const char*)option, "checkout") == 0) {
-        checkOut(booking);
+        checkOut();
 
     } else if (strcmp((const char*)option, "booktable") == 0) {
-        bookTable(booking);    
+        bookTable();    
 
     }
     
