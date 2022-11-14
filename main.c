@@ -1,15 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <errno.h>
 #include <math.h>
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #define N_ROOMS 6
 #define N_TABLES 3
 #define N_RAND_DIGITS 3
 #define N_TIMESLOTS 2
 #define INVALID_TABLE_ENTRY 0
-#define TABLE_UNAVAILABLE 0
+#define TABLE_UNAVAILABLE -1
 #define FILE_DOES_NOT_EXIST 2
 #define LINE_LENGTH 256
 #define NAME_LEN 100
@@ -57,6 +61,19 @@ void removeNewLine(char* s) {
     } while (*s++ = *d++);
 }
 
+void print(int delay, const char* fmt, ...) 
+{
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+#ifdef _WIN32
+    Sleep(delay);
+#else
+    sleep(delay);
+#endif
+}
+
 char* getTableName(Tables table, int pad)
 {
     if (table == Endor) return (pad ? "Endor   " : "Endor");
@@ -86,7 +103,7 @@ void checkInvalidChars(char* str, const char* chars)
                 printf("'%c'", chars[i]);
                 if (i + 1 != strlen(chars)) printf(", ");
             }
-            printf("\nPlease try again: ");
+            print(500, "\nPlease try again: ");
             scanf("%s", &str);
         }
     } while (containsInvalidChars);
@@ -96,7 +113,7 @@ void concatStr(char* buffer, char* str, int* idx)
 {
     size_t len = strlen(str);
     if (*idx + len > MAX_BUFSIZE) {
-        printf("Error: cannot concatenate strings: exceeds max buffer size\n");
+        print(500, "Error: cannot concatenate strings: exceeds max buffer size\n");
         exit(EXIT_FAILURE);
     }
     strcat(buffer + *idx, str);
@@ -159,13 +176,13 @@ int loadBookingData(const char* filename, Booking bookings[N_ROOMS])
         if (errno == FILE_DOES_NOT_EXIST) {
             f = fopen(filename, "w");
             if (f == NULL) {
-                printf("Error: could not create data file\n");
+                print(500, "Error: could not create data file\n");
                 exit(EXIT_FAILURE);
             }
             fclose(f);
             f = fopen(filename, "r");    
         } else {
-            printf("error!\n");
+            print(500, "Error: fopen() failed with code: %d\n", errno);
             return 0;
         }
     }
@@ -221,7 +238,7 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
     }
     FILE* f = fopen(filename, "w");
     if (f == NULL) {
-        printf("Error: could not write data to disk\n");
+        print(500, "Error: could not write data to disk\n");
         exit(EXIT_FAILURE);
     }
     fputs(buffer, f);
@@ -233,14 +250,14 @@ void checkIn()
 {
     Booking bookings[N_ROOMS];
     int nResults = loadBookingData("bookings.csv", bookings);
-    printf("%d\n", bookings[nResults - 1].tableNum);
-    printf("checking in...\n");
+    print(500, "%d\n", bookings[nResults - 1].tableNum);
+    print(500, "checking in...\n");
 }
 
 // Check out function (Mikhail)
 void checkOut()
 {
-    printf("checking out...\n");
+    print(500, "checking out...\n");
 }
 
 // Table booking function (Tom)
@@ -255,7 +272,7 @@ void bookTable()
     int tablesAvailable[N_TIMESLOTS][N_TABLES] = { { Endor, Naboo, Tatooine }, { Endor, Naboo, Tatooine } };
     // Check booking ID
     char bookingId[NAME_LEN + N_RAND_DIGITS];
-    printf("In order to book a table, please enter your booking ID: ");
+    print(500, "In order to book a table, please enter your booking ID: ");
     scanf("%s", &bookingId);
     fflush(stdin);
     for (int i = 0; i < nBookings; ++i) {
@@ -272,30 +289,31 @@ void bookTable()
         }
     }
     if (bookingIdx == -1) {
-        printf("Sorry, that is an invalid booking ID, you cannot book a table.\n");
+        print(500, "Sorry, that is an invalid booking ID, you cannot book a table.\n");
         return;
     } else if (bookings[bookingIdx].boardType == "BB") {
-        printf("Sorry, you are booked in for Bed & Breakfast, meaning you cannot book a dinner table.\n");
+        print(500, "Sorry, you are booked in for Bed & Breakfast, meaning you cannot book a dinner table.\n");
         return;
-    } else if (bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY || bookings[bookingIdx].tableSlot != INVALID_TABLE_ENTRY) {
-        printf("Sorry, you already have a table booked. You cannot book another one.\n");
+    } else if ((bookings[bookingIdx].tableNum != TABLE_UNAVAILABLE && bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY) || 
+               (bookings[bookingIdx].tableSlot != TABLE_UNAVAILABLE && bookings[bookingIdx].tableSlot != INVALID_TABLE_ENTRY)) {
+        print(500, "Sorry, you already have a table booked. You cannot book another one.\n");
         return;
     }
     int confirmChoice = 0;
     while (!confirmChoice) {
         // Display available tables
-        printf("Available tables: \n-----------------\n");
+        print(200, "Available tables: \n-----------------\n");
         int idx = 0, newIdx = 0, tableChoice;
         for (int i = 0; i < N_TIMESLOTS; ++i) {
             for (int j = 0; j < N_TABLES; ++j) {
                 if (tablesAvailable[i][j] == TABLE_UNAVAILABLE) continue;
-                printf("%d: %s | %d:00pm | Serves 4\n", idx + 1, getTableName(tablesAvailable[i][j], 1), (timeSlots[i] + 12) % 24);
+                print(100, "%d: %s | %d:00pm | Serves 4\n", idx + 1, getTableName(tablesAvailable[i][j], 1), (timeSlots[i] + 12) % 24);
                 idx++;
             }
         }
         printf("\n");
         do {
-            printf("Please select the table you want (1-%d): ", idx);
+            print(200, "Please select the table you want (1-%d): ", idx);
             scanf("%d", &tableChoice);
             fflush(stdin);
         } while (1 > tableChoice || tableChoice > idx);
@@ -317,7 +335,7 @@ void bookTable()
         );
         char choice;
         do {
-            printf("Would you like to confirm your booking? (Y/N) ");
+            print(200, "Would you like to confirm your booking? (Y/N) ");
             scanf("%c", &choice);
             fflush(stdin);
         } while (choice != 'Y' && choice != 'N' && choice != 'y' && choice != 'n');
@@ -328,7 +346,8 @@ void bookTable()
         }
     }
     saveBookingData("bookings.csv", bookings, nBookings);
-    printf(
+    print(
+        500,
         "Successfully booked a table for %s at %d:00pm\n", 
         getTableName(bookings[bookingIdx].tableNum, 0), 
         (bookings[bookingIdx].tableSlot + 12) % 24
@@ -338,20 +357,25 @@ void bookTable()
 // Main user interface
 int main(const int argc, const char** argv) 
 {
-    char option[32];
-    printf("Choose an action (checkin, checkout, booktable): ");
-    scanf("%s", &option);
-        
-    if (strcmp((const char*)option, "checkin") == 0) {
-        checkIn();
-
-    } else if (strcmp((const char*)option, "checkout") == 0) {
-        checkOut();
-
-    } else if (strcmp((const char*)option, "booktable") == 0) {
-        bookTable();    
-
+    int finished = 0;
+    while (!finished) {
+        char option[32];
+        printf("\nWelcome to the Kashyyyk Hotel\n");
+        for (int i = 0; i < 29; ++i) print(10, "-");
+        print(500, "\nChoose an action (checkin, checkout, booktable, quit): ");
+        scanf("%s", &option);
+            
+        if (strcmp((const char*)option, "checkin") == 0) {
+            checkIn();
+        } else if (strcmp((const char*)option, "checkout") == 0) {
+            checkOut();
+        } else if (strcmp((const char*)option, "booktable") == 0) {
+            bookTable();    
+        } else if (strcmp((const char*)option, "quit") == 0) {
+            finished = 1;
+        } else {
+            print(500, "Action '%s' not recognised\n", option);
+        }
     }
-    
     return 0;
 }
