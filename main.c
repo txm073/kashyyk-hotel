@@ -241,6 +241,14 @@ void checkIn()
 void checkOut()
 {
     printf("checking out...\n");
+
+    // Booking ID
+    char bokid[10];
+    printf("Enter your booking ID:");
+    scanf("%s", bokid);
+
+
+    // time of bill
     time_t s, val = 1;
     struct tm* current_time;
     s = time(NULL);
@@ -249,6 +257,7 @@ void checkOut()
            current_time->tm_mday,
            current_time->tm_mon + 1,
            current_time->tm_year + 1900);
+
 }
 }
 
