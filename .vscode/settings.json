@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "*.html": "html",
+        "vcruntime.h": "c"
+    }
+}

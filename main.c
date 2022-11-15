@@ -18,6 +18,7 @@
 #define LINE_LENGTH 256
 #define NAME_LEN 100
 #define MAX_BUFSIZE 6 * (3 * NAME_LEN + 64)
+#define BOOKING_FILE "booking.txt"
 
 // Booking struct
 typedef struct {
@@ -122,6 +123,9 @@ void concatStr(char* buffer, char* str, int* idx)
 
 char* intToString(int n)
 {
+    if (n < 0) {
+        printf("cannot convert %d to string\n", n);
+    }
     int nDigits = n ? ceil(log10(n)) + 1 : 1;
     char* buffer = malloc(nDigits); // free later to avoid memory leak
     itoa(n, buffer, 10);
@@ -165,7 +169,7 @@ int parseCSV(char* data, Booking bookings[N_ROOMS])
         }
 
     }
-    return idx > 1 ? idx - 1 : idx;
+    return idx;
 }
 
 int loadBookingData(const char* filename, Booking bookings[N_ROOMS])
@@ -192,11 +196,18 @@ int loadBookingData(const char* filename, Booking bookings[N_ROOMS])
     fseek(f, 0, SEEK_SET);
     // Allocate buffer of size fSize bytes
     char* data = malloc(fSize);
-    int idx = 0, c = 0;
-    while ((c = fgetc(f)) != EOF) {
-        *(data + idx) = c;
-        idx++;
-    }  
+    if (data == NULL) {
+        printf("malloc() failed with error: %d\n", errno);
+        exit(EXIT_FAILURE);   
+    }
+    char c = 0;
+    int bytesRead = 0;
+    while (bytesRead != fSize) {
+        c = fgetc(f);
+        data[bytesRead] = c;
+        bytesRead++;
+    }
+    data[fSize - 1] = '\0';
     int nResults = parseCSV(data, bookings);
     fclose(f);
     return nResults;
@@ -228,17 +239,20 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
         concatStr(buffer, intToString(booking.paper), &charIdx);
         concatStr(buffer, delim, &charIdx);
         concatStr(buffer, intToString(booking.roomNum), &charIdx);
-        if (booking.tableNum != INVALID_TABLE_ENTRY && booking.tableSlot != INVALID_TABLE_ENTRY) {
+        if (booking.tableNum != INVALID_TABLE_ENTRY && booking.tableSlot != INVALID_TABLE_ENTRY 
+            && booking.tableNum != TABLE_UNAVAILABLE && booking.tableSlot != TABLE_UNAVAILABLE) {
             concatStr(buffer, delim, &charIdx);
             concatStr(buffer, intToString(booking.tableNum), &charIdx);
             concatStr(buffer, delim, &charIdx);
             concatStr(buffer, intToString(booking.tableSlot), &charIdx);
         }
-        concatStr(buffer, lineBreak, &charIdx);
+        if ((i + 1) != nBookings) {
+            concatStr(buffer, lineBreak, &charIdx);
+        }
     }
     FILE* f = fopen(filename, "w");
     if (f == NULL) {
-        print(500, "Error: could not write data to disk\n");
+        print(500, "error: could not write data to disk\n");
         exit(EXIT_FAILURE);
     }
     fputs(buffer, f);
@@ -249,8 +263,8 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
 void checkIn()
 {
     Booking bookings[N_ROOMS];
-    int nResults = loadBookingData("bookings.csv", bookings);
-    print(500, "%d\n", bookings[nResults - 1].tableNum);
+    int nBookings = loadBookingData(BOOKING_FILE, bookings);
+    printf("nBookings: %d\n", nBookings);
     print(500, "checking in...\n");
 }
 
@@ -265,7 +279,7 @@ void bookTable()
 {
     // Load booking data
     Booking bookings[N_ROOMS];
-    int nBookings = loadBookingData("bookings.csv", bookings), bookingIdx = -1;
+    int nBookings = loadBookingData(BOOKING_FILE, bookings), bookingIdx = -1;
     // Create a 2D array of all possible booking slots at each table
     int timeSlots[N_TIMESLOTS] = { 7, 9 };
     int tables[N_TABLES] = { Endor, Naboo, Tatooine };
@@ -296,7 +310,22 @@ void bookTable()
         return;
     } else if ((bookings[bookingIdx].tableNum != TABLE_UNAVAILABLE && bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY) || 
                (bookings[bookingIdx].tableSlot != TABLE_UNAVAILABLE && bookings[bookingIdx].tableSlot != INVALID_TABLE_ENTRY)) {
-        print(500, "Sorry, you already have a table booked. You cannot book another one.\n");
+        print(
+            500, 
+            "You currently have a table booked: %s at %d:00pm\n", 
+            getTableName(bookings[bookingIdx].tableNum, 0), 
+            bookings[bookingIdx].tableSlot % 12 + 12
+        );
+        char choice;
+        do {
+            print(200, "Would you like to cancel your table booking? (Y/N) ");
+            scanf("%c", &choice);
+            fflush(stdin);
+        } while (choice != 'Y' && choice != 'N' && choice != 'y' && choice != 'n');
+        if (choice == 'N' || choice == 'n') return;
+        bookings[bookingIdx].tableNum = INVALID_TABLE_ENTRY;
+        bookings[bookingIdx].tableSlot = INVALID_TABLE_ENTRY;
+        saveBookingData(BOOKING_FILE, bookings, nBookings);
         return;
     }
     int confirmChoice = 0;
@@ -321,6 +350,7 @@ void bookTable()
         int tempTableNum = 0, tempTableSlot = 0;
         for (int i = 0; i < N_TIMESLOTS; ++i) {
             for (int j = 0; j < N_TABLES; ++j) {
+                if (tablesAvailable[i][j] == TABLE_UNAVAILABLE) continue;
                 if (tableChoice == newIdx + 1) {
                     tempTableNum = tablesAvailable[i][j];
                     tempTableSlot = timeSlots[i];
@@ -345,7 +375,7 @@ void bookTable()
             confirmChoice = 1;
         }
     }
-    saveBookingData("bookings.csv", bookings, nBookings);
+    saveBookingData(BOOKING_FILE, bookings, nBookings);
     print(
         500,
         "Successfully booked a table for %s at %d:00pm\n", 
@@ -361,7 +391,7 @@ int main(const int argc, const char** argv)
     while (!finished) {
         char option[32];
         printf("\nWelcome to the Kashyyyk Hotel\n");
-        for (int i = 0; i < 29; ++i) print(10, "-");
+        for (int i = 0; i < 29; ++i) print(5, "-");
         print(500, "\nChoose an action (checkin, checkout, booktable, quit): ");
         scanf("%s", &option);
             
