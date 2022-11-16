@@ -406,7 +406,10 @@ void checkOut()
 
         }
     }
-    year = booking[roomnum].dob % 1000;
+    year = booking[roomnum].dob;
+    int aloi(year);
+    year = year;
+    minyear = (current_time->tm_year + 1900) - 65;
 
     printf("Date of bill %d.%d.%d\n",
            current_time->tm_mday,
@@ -415,8 +418,12 @@ void checkOut()
     printf("Booking ID: %s", bokid);
     printf("Main user: %s %s", booking[roomnum].firstname, booking[roomnum].lastname)
     printf("--------------------");
-    if year
+    if year <= minyear{
+
+    }
+    else{
         printf("Room price: %d",prices[roomnum])
+    }
 
     if booking[roomnum].paper == TRUE{
         printf("Newspaper: 5.50")
