@@ -272,6 +272,18 @@ void checkIn()
 void checkOut()
 {
     print(500, "checking out...\n");
+
+    // Booking ID
+    char bokid[10];
+    printf("Enter your booking ID:");
+    scanf("%s", bokid);
+
+
+    // time of bill
+    time_t s, val = 1;
+    time_t s, val = 1;
+    struct tm* current_time;
+    s = time();
 }
 
 // Table booking function (Tom)
