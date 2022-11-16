@@ -262,10 +262,131 @@ void saveBookingData(const char* filename, Booking bookings[N_ROOMS], int nBooki
 // Check in function (Orin)
 void checkIn()
 {
+
+    int room1Available = 1;
+    int room2Available = 1;
+    int room3Available = 1;
+    int room4Available = 1;
+    int room5Available = 1;
+    int room6Available = 1;
+
+
     Booking bookings[N_ROOMS];
-    int nBookings = loadBookingData(BOOKING_FILE, bookings);
-    printf("nBookings: %d\n", nBookings);
-    print(500, "checking in...\n");
+    Booking booking;
+
+    int nBookings = loadBookingData("bookings.txt", bookings);
+    if (nBookings == 6)
+    {
+        printf("Sorry the hotel is full");
+        return;
+    }
+
+    printf("checking in...\n");
+    printf("Please enter your first name...\n");
+    scanf("%s", &booking.firstName);
+            fflush(stdin);
+
+
+    printf("Please enter you last name...\n");
+    scanf("%s", &booking.lastName);
+            fflush(stdin);
+
+    sprintf(booking.id, "%s%d", booking.lastName, rand()%10);
+    printf("Your ID is %s\n", booking.id);
+
+    printf("Please enter your date of birth in the format DD/MM/YYY...\n");
+    scanf("%s", &booking.dob);
+            fflush(stdin);
+
+    printf("How many days are you staying for...\n");
+    scanf("%d", &booking.nDays);
+            fflush(stdin);
+    printf("__________________________\n");
+
+
+
+    while((booking.nAdults + booking.nChildren) > 4 || (booking.nAdults + booking.nChildren) == 0)
+    {
+        printf("How many adults are staying...\n");
+        scanf("%d", &booking.nAdults);
+                fflush(stdin);
+
+
+        printf("How many children are staying... \n(age 16 or below)\n");
+        scanf("%d", &booking.nChildren);
+        fflush(stdin);
+        if((booking.nChildren + booking.nAdults) > 4)
+        {
+            printf("Sorry that is too many people in one room\n__________________________\n");
+
+            
+        }
+    }
+
+    printf("__________________________\n");
+
+    printf("Would you like a daily newspaper... \n(1 for yes or 0 for no)\n");
+    scanf("%s", &booking.paper);
+
+    printf("__________________________\n");
+
+
+
+
+    int roomChoice = 0;
+    printf("What room would you like 1-6...\n");
+    scanf("%d", &roomChoice);
+    fflush(stdin);
+
+    while(roomChoice < 1 || roomChoice > 6)
+    {
+        printf("Please enter a valid room number...\n");
+        scanf("%d", &roomChoice);
+        fflush(stdin);
+    }
+
+   if(roomChoice == 1 && room1Available == 1)
+   {
+    room1Available == 0;
+    printf("You have booked room 1\n__________________________\n");
+   }
+
+   if(roomChoice == 2 && room2Available == 1)
+   {
+    room2Available == 0;
+    printf("You have booked room 2\n__________________________\n");
+   }
+ 
+    if(roomChoice == 3 && room3Available == 1)
+   {
+    room3Available = 0;
+    printf("You have booked room 3\n__________________________\n");
+   }
+
+   if(roomChoice == 4 && room4Available == 1)
+   {
+    room4Available == 0;
+    printf("You have booked room 4\n__________________________\n");
+   }
+
+   if(roomChoice == 5 && room5Available == 1)
+   {
+    room5Available = 0;
+    printf("You have booked room 5\n__________________________\n");
+   }
+
+   if(roomChoice == 6 && room6Available == 1)
+   {
+    room6Available = 0;
+    printf("You have booked room 6\n__________________________\n");
+   }
+
+    booking.roomNum = roomChoice;
+
+    bookings[nBookings] = booking;
+    nBookings ++;
+    
+    saveBookingData("bookings.txt", bookings, nBookings);
 }
 
 // Check out function (Mikhail)
