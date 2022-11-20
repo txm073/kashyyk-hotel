@@ -440,7 +440,6 @@ void checkOut()
     print(500, "checking out...\n");
     Booking bookings[N_ROOMS];
     int nbookings = loadBookingData(BOOKING_FILE, bookings);
-    struct tm current_time;
     // Booking ID
     char bokid[10];
     int roomnum = -1,year = 0, i = 0;
@@ -448,7 +447,6 @@ void checkOut()
     printf("Enter your booking ID:");
     scanf("%s", &bokid);
     for (i = 0; i < nbookings ; i++){
-        printf("%s\n",bookings[i]);
         if (strcmp(bookings[i].id,bokid) == 0){
             printf("Valid booking ID\n");
             roomnum = i;
@@ -459,28 +457,71 @@ void checkOut()
         printf("Invalid booking ID\n");
         return;
     }
+    time_t s, val = 1;
+    struct tm* current_time;
+    s = time(NULL);
+    current_time = localtime(&s);
 
     int bday,bmonth,byear;
     parseDateTimeString(bookings[roomnum].dob, &bday, &bmonth, &byear);
-
-    printf("Date of bill %d.%d.%d\n",
-           current_time.tm_mday,
-           current_time.tm_mon + 1,
-           current_time.tm_year + 1900);
+    printf("==========================\n");
+    printf("Thank you for staying at\nThe Kashyyyk Hotel\n");
+    printf("==========================\n");
+    printf("Date of bill: %d.%d.%d\n",
+           current_time->tm_mday,
+           current_time->tm_mon + 1,
+           current_time->tm_year + 1900);
     printf("Booking ID: %s\n", bokid);
     printf("Main user: %s %s\n", bookings[roomnum].firstName, bookings[roomnum].lastName);
-    printf("--------------------\n");
+    printf("number of adults: %d\n",bookings[roomnum].nAdults);
+    printf("number of children: %d\n",bookings[roomnum].nChildren);
+    printf("--------------------------\n");
 
+    //fb = 20, hb = 15, bb = 5
+    float afc = 0,cfc = 0,tfc = 0;
+    char str1[] = "FB", str2[] = "HB", str3[] = "BB";
 
+    if(strcmp(bookings[roomnum].boardType, str1) == 0) {
+        afc = bookings[roomnum].nAdults * 20;
+        cfc = bookings[roomnum].nChildren * 20 / 2;
+        tfc = cfc + afc;
+    }
+    else if(strcmp(bookings[roomnum].boardType, str2) == 0) {
+        afc = afc + bookings[roomnum].nAdults * 15;
+        cfc = cfc + bookings[roomnum].nChildren * 15 / 2;
+        tfc = cfc + afc;
+    }
+
+    else if(strcmp(bookings[roomnum].boardType, str3) == 0) {
+        afc = afc + bookings[roomnum].nAdults * 5;
+        cfc = cfc + bookings[roomnum].nChildren * 5 / 2;
+        tfc = cfc + afc;
+    }
+
+    else {
+        printf("Error with board type\n");
+    }
+    printf("Total adult board price:%.2f\n", afc);
+    printf("Total child board price:%.2f\n", cfc);
+    printf("Total board price: %.2f\n", tfc);
+    total = total + tfc;
+
+    float rpt = 0;
+
+    rpt = prices[bookings[roomnum].roomNum];
+    printf("Room stayed in:%d\n",bookings[roomnum].roomNum + 1);
+    printf("Room total: %d\n", prices[bookings[roomnum].roomNum]);
+    total = total + rpt;
+    // Insert over 65 thing in if statement to give discount
 
 
     if (bookings[roomnum].paper == 1){
         printf("Newspaper: 5.50\n");
         total = total + 5.5;
     }
+    printf("--------------------------\n");
     printf("Total price: %.2f\n", total);
-
-
+    printf("==========================\n");
 }
 
 // Table booking function (Tom)
