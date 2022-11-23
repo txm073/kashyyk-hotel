@@ -462,277 +462,228 @@ int validDOB(char* str)
     }
     return 1;
 }
+
+/* Main program logic */
+
 // Check in function (Orin)
 void checkIn()
 {
-    int room1Available = 1;
-    int room2Available = 1;
-    int room3Available = 1;
-    int room4Available = 1;
-    int room5Available = 1;
-    int room6Available = 1;
-
     Booking bookings[N_ROOMS];
-    Booking booking;
 
-    int nBookings = loadBookingData("bookings.txt", bookings);
-    if (nBookings == N_ROOMS)
-    {
-        printf("Sorry the hotel is full");
+    int nBookings = loadBookingData(BOOKING_FILE, bookings);
+    if (nBookings == N_ROOMS) {
+        printf("Sorry, there are no rooms available at the moment.\n");
         return;
     }
-    for (int i = 0; i < nBookings; ++i) {
-        if (bookings[i].roomNum == 1) room1Available = 0;
-        if (bookings[i].roomNum == 2) room2Available = 0;
-        if (bookings[i].roomNum == 3) room3Available = 0;
-        if (bookings[i].roomNum == 4) room4Available = 0;
-        if (bookings[i].roomNum == 5) room5Available = 0;
-        if (bookings[i].roomNum == 6) room6Available = 0;
-    }
-    printf("Please enter your first name: ");
-    booking.firstName = inputString();
+    int confirmedDetails = 0;
+    while (!confirmedDetails) {
+        Booking booking;
+        do {
+            printf("Please enter your first name: ");
+            booking.firstName = trim(inputString());
+        } while (containsInvalidChars(booking.firstName, NULL, NAME_CHARS) || strlen(booking.firstName) == 0);
 
-    printf("Please enter you last name: ");
-    booking.lastName = inputString();
+        do {
+            printf("Please enter your last name: ");
+            booking.lastName = trim(inputString());
+        } while (containsInvalidChars(booking.lastName, NULL, NAME_CHARS) || strlen(booking.lastName) == 0);
 
-    printf("\n");
-    booking.dob = "00/00/0000";
-    do {
-        printf("Please enter your date of birth (DD/MM/YYYY): ");
-        booking.dob = trim(inputString());
-    } while (!validDOB(booking.dob));
+        printf("\n");
+        booking.dob = "00/00/0000";
+        do {
+            printf("Please enter your date of birth (DD/MM/YYYY): ");
+            booking.dob = trim(inputString());
+        } while (!validDOB(booking.dob));
 
-    int idSize = strlen(booking.lastName) + 2, idExists = 0;    
-    do {
-        idExists = 0;
-        booking.id = realloc(booking.id, idSize);
-        sprintf(booking.id, "%s%d", booking.lastName, rand() % 10);
+        int idSize = strlen(booking.lastName) + 2, idExists = 0;    
+        do {
+            idExists = 0;
+            booking.id = realloc(booking.id, idSize);
+            sprintf(booking.id, "%s%d", booking.lastName, rand() % 10);
+            for (int i = 0; i < nBookings; ++i) {
+                if (strcmp(booking.id, bookings[i].id) == 0) {
+                    idExists = 1;
+                }
+            }
+        } while (idExists);
+        printf("\nHere is your booking id: %s\n", booking.id);
+        printf("Do not forget it, you will need it to book a table and to check out\n");
+
+        printf("\nAvailable board types:\n--------------------\n");
+        wprintf(L"1: Full-Board (FB)      | £20 per person, per day\n");
+        wprintf(L"2: Half-Board (HB)      | £15 per person, per day\n");
+        wprintf(L"3: Bed & Breakfast (BB) | £5  per person, per day\n");
+        int choice = 0;
+        do {
+            printf("Select a board type (1-3): ");
+            scanf("%d", &choice);
+            fflush(stdin);
+        } while (choice > 3 || choice < 1);
+        if (choice == 1) booking.boardType = "FB";
+        else if (choice == 2) booking.boardType = "HB";
+        else if (choice == 3) booking.boardType = "BB";
+        printf("\n");
+
+        do {
+            printf("How many days will you be staying? (1-%d) ", MAX_DAYS);
+            scanf("%d", &booking.nDays);
+            fflush(stdin);
+        } while (booking.nDays < 1 || booking.nDays > MAX_DAYS);
+
+        do {
+            printf("\nA room can have a maximum of 4 guests\n");
+            printf("How may adults will be staying? ");
+            scanf("%d", &booking.nAdults);
+            fflush(stdin);
+            printf("How may children will be staying? ");
+            scanf("%d", &booking.nChildren);
+            fflush(stdin);
+        } while ((booking.nAdults + booking.nChildren) > 4 || (booking.nAdults + booking.nChildren) < 1);
+
+        // Create array of all rooms
+        int roomsAvailable[N_ROOMS];
+        for (int i = 0; i < N_ROOMS; ++i) {
+            roomsAvailable[i] = i + 1;
+        }
+        // Filter out unavailable rooms
         for (int i = 0; i < nBookings; ++i) {
-            if (strcmp(booking.id, bookings[i].id) == 0) {
-                idExists = 1;
+            for (int j = 0; j < N_ROOMS; ++j) {
+                if (roomsAvailable[j] == bookings[i].roomNum) {
+                    roomsAvailable[j] = 0;
+                }
             }
         }
-    } while (idExists);
-    printf("\nHere is your booking id: %s\n", booking.id);
-
-    printf("\nAvailable board types:\n--------------------\n");
-    wprintf(L"1: Full-Board (FB)      | £20 per person, per day\n");
-    wprintf(L"2: Half-Board (HB)      | £15 per person, per day\n");
-    wprintf(L"3: Bed & Breakfast (BB) | £5  per person, per day\n");
-    int choice = 0;
-    do {
-        printf("Select a board type (1-3): ");
-        scanf("%d", &choice);
-        fflush(stdin);
-    } while (choice > 3 || choice < 1);
-    if (choice == 1) booking.boardType = "FB";
-    else if (choice == 2) booking.boardType = "HB";
-    else if (choice == 3) booking.boardType = "BB";
-    printf("\n");
-
-    printf("How many days are you staying for? ");
-    scanf("%d", &booking.nDays);
-    fflush(stdin);
-    printf("__________________________\n");
-
-    while((booking.nAdults + booking.nChildren) > 4 || (booking.nAdults + booking.nChildren) == 0)
-    {
-        printf("How many adults are staying? ");
-        scanf("%d", &booking.nAdults);
-        fflush(stdin);
-
-
-        printf("How many children are staying? (age 16 or below): ");
-        scanf("%d", &booking.nChildren);
-        fflush(stdin);
-        if((booking.nChildren + booking.nAdults) > 4)
-        {
-            printf("Sorry that is too many people in one room\n__________________________\n");
-
-
+        // Display available rooms and prompt user for selection
+        printf("\nHere are the available rooms:\n-----------------------------\n");
+        int nRoomsAvailable = 0;
+        for (int i = 0; i < N_ROOMS; ++i) {
+            if (roomsAvailable[i] == 0) continue;
+            printf("Room %d | ", roomsAvailable[i]);
+            wprintf(L"£");
+            printf("%d per day\n", roomPrices[i]);
+            nRoomsAvailable++;
         }
-    }
-
-    printf("__________________________\n");
-
-    do {
-        printf("Would you like a daily newspaper? (1 for yes or 0 for no): ");
-        scanf("%d", &booking.paper);
-    } while (booking.paper != 1 && booking.paper != 0);
-    printf("__________________________\n");
-
-    int selectedRoom = 0;
-    int roomChoice = 0;
-    while (!selectedRoom) 
-    {
-        printf("Rooms available:\n---------------\n");
-        if (room1Available) wprintf(L"Room 1: £100\n");
-        if (room2Available) wprintf(L"Room 2: £100\n");
-        if (room3Available) wprintf(L"Room 3: £85\n");
-        if (room4Available) wprintf(L"Room 4: £75\n");
-        if (room5Available) wprintf(L"Room 5: £75\n");
-        if (room6Available) wprintf(L"Room 6: £50\n");
-        
-        selectedRoom = 1;
-        printf("What room would you like 1-6: \n");
-        scanf("%d", &roomChoice);
-        fflush(stdin);
-
-
-        while(roomChoice < 1 || roomChoice > 6)
-        {
-            printf("Please enter a valid room number...\n");
-            scanf("%d", &roomChoice);
+        int validRoom = 0;
+        while (!validRoom) {
+            printf("Please select a room [");
+            char choiceBuffer[20] = "";
+            for (int i = 0; i < N_ROOMS; i++) {
+                if (roomsAvailable[i] == 0) continue;
+                strcat(choiceBuffer, intToString(roomsAvailable[i]));
+                strcat(choiceBuffer, ", "); 
+            }
+            choiceBuffer[3 * (N_ROOMS - nBookings) - 2] = '\0';
+            printf(choiceBuffer);
+            printf("]: ");
+            scanf("%d", &booking.roomNum);
             fflush(stdin);
-        }
+            for (int i = 0; i < N_ROOMS; i++) {
+                if (roomsAvailable[i] == booking.roomNum) validRoom = 1;
+            }
+        }    
+        printf("\n");
+        char paperChoice;
+        do {
+            printf("Would you like to receive a newspaper each morning? (Y/N) ");
+            scanf("%c", &paperChoice);
+            fflush(stdin);
+        } while (paperChoice != 'Y' && paperChoice != 'N' && paperChoice != 'y' && paperChoice != 'n');
+        booking.paper = (paperChoice == 'Y' || paperChoice == 'y') ? 1 : 0;
+        
+        printf("\nYour information:\n");
+        printf("-----------------\n");
+        printf("First Name    | %s\n", booking.firstName);
+        printf("Last Name     | %s\n", booking.lastName);
+        printf("Date of Birth | %s\n", booking.dob);
+        printf("Board Type    | %s\n", booking.boardType);
+        printf("Room Number   | %d\n", booking.roomNum);
+        printf("Stay length   | %d days\n", booking.nDays);
+        printf("No. Adults    | %d\n", booking.nAdults);
+        printf("No. Children  | %d\n", booking.nChildren);
+        printf("Newspaper     | %s\n", booking.paper ? "Yes" : "No");
 
-        if(roomChoice == 1 && room1Available == 1)
-        {
-            room1Available = 0;
-            printf("You have booked room 1\n__________________________\n");
-        }
-
-        else if(roomChoice == 2 && room2Available == 1)
-        {
-            room2Available = 0;
-            printf("You have booked room 2\n__________________________\n");
-        }
-
-        else if(roomChoice == 3 && room3Available == 1)
-        {
-            room3Available = 0;
-            printf("You have booked room 3\n__________________________\n");
-        }
-
-        else if(roomChoice == 4 && room4Available == 1)
-        {
-            room4Available = 0;
-            printf("You have booked room 4\n__________________________\n");
-        }
-
-        else if(roomChoice == 5 && room5Available == 1)
-        {
-            room5Available = 0;
-            printf("You have booked room 5\n__________________________\n");
-        }
-
-        else if(roomChoice == 6 && room6Available == 1)
-        {
-            room6Available = 0;
-            printf("You have booked room 6\n__________________________\n");
-        }
-
-        else 
-        {
-            printf("The room you selected is unavailable, please select a different one.\n");
-            selectedRoom = 0;
-        }
-    
+        printf("\n");
+        char confirm;
+        do {
+            printf("Confirm your booking? (Y/N) ");
+            scanf("%c", &confirm);
+            fflush(stdin);
+        } while (confirm != 'Y' && confirm != 'N' && confirm != 'y' && confirm != 'n');
+        confirmedDetails = (confirm == 'Y' || confirm == 'y') ? 1 : 0;
+        bookings[nBookings] = booking;
     }
-    booking.roomNum = roomChoice;
-
-    bookings[nBookings] = booking;
     nBookings++;
-
     saveBookingData(BOOKING_FILE, bookings, nBookings);
+    printf("Check-in was successful!\n");
 }
 
-void checkOut()
+// Check out function (Mikhail)
+void checkOut() 
 {
+    // Load booking data
     Booking bookings[N_ROOMS];
-    int nbookings = loadBookingData(BOOKING_FILE, bookings);
-    // Booking ID
-    int roomnum = -1,year = 0, i = 0;
-    float total = 0;
-    printf("Enter your booking ID: ");
-    char* bokid = inputString();
-    for (i = 0; i < nbookings ; i++){
-        if (strcmp(bookings[i].id,bokid) == 0){
-            roomnum = i;
+    int nBookings = loadBookingData(BOOKING_FILE, bookings), bookingIdx = -1;
+    printf("Please enter your booking ID: ");
+    char* bookingId = inputString();
+    for (int i = 0; i < nBookings; i++) {
+        if (strcmp(bookings[i].id, bookingId) == 0) {
+            bookingIdx = i;
             break;
         }
     }
-    if (roomnum == -1){
+    if (bookingIdx == -1) {
         printf("Invalid booking ID\n");
         return;
+    }
+    float roomCost = bookings[bookingIdx].nDays * roomPrices[bookings[bookingIdx].roomNum - 1];
+    // Over 65's get 10% discount
+    int discount = ((daysElapsed(bookings[bookingIdx].dob, currentDate()) - bookings[bookingIdx].nDays) / 365.25f) > 65.0f;
+    if (discount) {
+        roomCost *= 0.9f;
     }
     int nMeals = -1;
     do {
         printf("How many meals have you had? ");
         scanf("%d", &nMeals);
         fflush(stdin);
-    } while (nMeals < 0);
-
-    time_t s, val = 1;
-    struct tm* current_time;
-    s = time(NULL);
-    current_time = localtime(&s);
-
-    int bday,bmonth,byear;
-    parseDateTimeString(bookings[roomnum].dob, &bday, &bmonth, &byear);
-    printf("==========================\n");
-    printf("Thank you for staying at\nThe Kashyyyk Hotel\n");
-    printf("==========================\n");
-    printf("Date of bill: %d.%d.%d\n",
-           current_time->tm_mday,
-           current_time->tm_mon + 1,
-           current_time->tm_year + 1900);
-    printf("Booking ID: %s\n", bokid);
-    printf("Main user: %s %s\n", bookings[roomnum].firstName, bookings[roomnum].lastName);
-    printf("number of adults: %d\n",bookings[roomnum].nAdults);
-    printf("number of children: %d\n",bookings[roomnum].nChildren);
-    printf("Room stayed in: %d\n",bookings[roomnum].roomNum + 1);
-    printf("--------------------------\n");
-
-    //fb = 20, hb = 15, bb = 5
-    float afc = 0,cfc = 0,tfc = 0;
-    char str1[] = "FB", str2[] = "HB", str3[] = "BB";
-
-    if(strcmp(bookings[roomnum].boardType, str1) == 0) {
-        afc = bookings[roomnum].nAdults * 20 * nMeals;
-        cfc = bookings[roomnum].nChildren * 20 * nMeals / 2;
-        tfc = cfc + afc;
-    }
-    else if(strcmp(bookings[roomnum].boardType, str2) == 0) {
-        afc = afc + bookings[roomnum].nAdults * 15 * nMeals;
-        cfc = cfc + bookings[roomnum].nChildren * 15 * nMeals / 2;
-        tfc = cfc + afc;
-    }
-
-    else if(strcmp(bookings[roomnum].boardType, str3) == 0) {
-        afc = afc + bookings[roomnum].nAdults * 5 * nMeals;
-        cfc = cfc + bookings[roomnum].nChildren * 5 * nMeals / 2;
-        tfc = cfc + afc;
-    }
-
+    } while (nMeals == -1);
+    int costPerMeal;
+    if (strcmp(bookings[bookingIdx].boardType, "BB") == 0) costPerMeal = 5;
+    else if (strcmp(bookings[bookingIdx].boardType, "HB") == 0) costPerMeal = 15;
+    else if (strcmp(bookings[bookingIdx].boardType, "FB") == 0) costPerMeal = 20;
     else {
-        printf("Error with board type\n");
+        printf("error: invalid board type: %s\n", bookings[bookingIdx].boardType);
+        printf("error: data has been corrupted\n");
+        removeBooking(bookings, bookingIdx, &nBookings);
+        saveBookingData(BOOKING_FILE, bookings, nBookings);
+        exit(EXIT_FAILURE);
     }
-    printf("Total adult board price: £%.2f\n", afc);
-    printf("Total child board price: £%.2f\n", cfc);
-    printf("Total board price: £%.2f\n", tfc);
-    total = total + tfc;
+    float mealCost = nMeals * costPerMeal * bookings[bookingIdx].nAdults + nMeals * costPerMeal * bookings[bookingIdx].nChildren / 2;
+    float paperCost = bookings[bookingIdx].paper ? 5.5f : 0.0f;
 
-    float rpt = 0;
-    rpt = roomPrices[bookings[roomnum].roomNum];
-    int daysold = daysElapsed(bookings[roomnum].dob,currentDate());
-    if (daysold >= (65 * 365.25f)){
-        rpt = rpt * 0.9;
-    }
-    printf("Room total: %.2f\n", rpt);
+    float total = roomCost + mealCost + paperCost;
+    printf("\nBill:\n");
+    for (int i = 0; i < (strlen(bookings[bookingIdx].firstName) + strlen(bookings[bookingIdx].lastName) + 13); ++i) printf("-");
+    printf("\nName      | %s %s\n", bookings[bookingIdx].firstName, bookings[bookingIdx].lastName);
+    printf("User ID   | %s\n", bookings[bookingIdx].id);
+    printf("Guests    | %d adults, %d children\n", bookings[bookingIdx].nAdults, bookings[bookingIdx].nChildren);
+    wprintf(L"Room      | £%.2f", roomCost);
+    if (discount) printf(" (with 10%% discount for guests over 65)\n");
+    else printf("\n");
+    if (mealCost > 0) wprintf(L"Meals     | £%.2f\n", mealCost);
+    if (paperCost > 0) wprintf(L"Newspaper | £%.2f\n", paperCost);
+    wprintf(L"Total     | £%.2f\n", total);
 
-    total = total + rpt;
-    if (bookings[roomnum].paper == 1){
-        printf("Newspaper: 5.50\n");
-        total = total + 5.5;
-    }
-    printf("--------------------------\n");
-    printf("Total price: %.2f\n", total);
-    printf("==========================\n");
+    float amountPaid, truncatedTotal = floorf(total * 100) / 100;
+    do {
+        wprintf(L"Please enter the total bill (£%.2f): ", total);
+        scanf("%f", &amountPaid);
+        fflush(stdin);
+    } while (amountPaid != truncatedTotal);
 
-    removeBooking(bookings, roomnum,&nbookings);
-    saveBookingData(BOOKING_FILE, bookings, nbookings);
-    printf("Thank you for staying at The Kashyyyk Hotel\n");
+    removeBooking(bookings, bookingIdx, &nBookings);
+    saveBookingData(BOOKING_FILE, bookings, nBookings);
+    printf("\nThank you for staying at the Kashyyyk Hotel!\n");
 }
 
 // Table booking function (Tom)
@@ -747,7 +698,8 @@ void bookTable()
     int tablesAvailable[N_TIMESLOTS][N_TABLES] = { { Endor, Naboo, Tatooine }, { Endor, Naboo, Tatooine } };
     // Check booking ID
     print(500, "In order to book a table, please enter your booking ID: ");
-    char* bookingId = inputString();
+    char* bookingId = trim(inputString());
+    fflush(stdin);
     for (int i = 0; i < nBookings; ++i) {
         for (int timeSlotIdx = 0; timeSlotIdx < N_TIMESLOTS; ++timeSlotIdx) {
             for (int tableIdx = 0; tableIdx < N_TABLES; ++tableIdx) {
@@ -755,25 +707,24 @@ void bookTable()
                     tablesAvailable[timeSlotIdx][tableIdx] = TABLE_UNAVAILABLE;
                 }
             }
-        }
+        } 
         if (strcmp(bookings[i].id, bookingId) == 0) {
             bookingIdx = i;
-            break;
         }
     }
     if (bookingIdx == -1) {
         print(500, "Sorry, that is an invalid booking ID, you cannot book a table.\n");
         return;
-    } else if (bookings[bookingIdx].boardType == "BB") {
+    } else if (strcmp(bookings[bookingIdx].boardType, "BB") == 0) {
         print(500, "Sorry, you are booked in for Bed & Breakfast, meaning you cannot book a dinner table.\n");
         return;
-    } else if ((bookings[bookingIdx].tableNum != TABLE_UNAVAILABLE && bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY) ||
+    } else if ((bookings[bookingIdx].tableNum != TABLE_UNAVAILABLE && bookings[bookingIdx].tableNum != INVALID_TABLE_ENTRY) || 
                (bookings[bookingIdx].tableSlot != TABLE_UNAVAILABLE && bookings[bookingIdx].tableSlot != INVALID_TABLE_ENTRY)) {
         print(
-                500,
-                "You currently have a table booked: %s at %d:00pm\n",
-                getTableName(bookings[bookingIdx].tableNum, 0),
-                bookings[bookingIdx].tableSlot % 12 + 12
+            500, 
+            "You currently have a table booked: %s at %d:00pm\n", 
+            getTableName(bookings[bookingIdx].tableNum, 0), 
+            bookings[bookingIdx].tableSlot % 12 + 12
         );
         char choice;
         do {
@@ -805,7 +756,7 @@ void bookTable()
             scanf("%d", &tableChoice);
             fflush(stdin);
         } while (1 > tableChoice || tableChoice > idx);
-
+        
         int tempTableNum = 0, tempTableSlot = 0;
         for (int i = 0; i < N_TIMESLOTS; ++i) {
             for (int j = 0; j < N_TABLES; ++j) {
@@ -818,9 +769,9 @@ void bookTable()
             }
         }
         printf(
-                "You have selected: %s at %d:00pm\n",
-                getTableName(tempTableNum, 0),
-                (tempTableSlot + 12) % 24
+            "You have selected: %s at %d:00pm\n", 
+            getTableName(tempTableNum, 0), 
+            (tempTableSlot + 12) % 24
         );
         char choice;
         do {
@@ -836,18 +787,19 @@ void bookTable()
     }
     saveBookingData(BOOKING_FILE, bookings, nBookings);
     print(
-            500,
-            "Successfully booked a table for %s at %d:00pm\n",
-            getTableName(bookings[bookingIdx].tableNum, 0),
-            (bookings[bookingIdx].tableSlot + 12) % 24
+        500,
+        "Successfully booked a table for %s at %d:00pm\n", 
+        getTableName(bookings[bookingIdx].tableNum, 0), 
+        (bookings[bookingIdx].tableSlot + 12) % 24
     );
 }
 
 // Main user interface
-int main(const int argc, const char** argv)
+int main(const int argc, const char** argv) 
 {
     setlocale(LC_CTYPE, ""); // enable utf-8 in the console
-    srand(time(NULL));
+    srand(time(NULL)); // random seed 
+    
     int finished = 0;
     while (!finished) {
         char option[32];
@@ -855,18 +807,23 @@ int main(const int argc, const char** argv)
         for (int i = 0; i < 29; ++i) print(5, "-");
         print(500, "\nChoose an action (checkin, checkout, booktable, quit): ");
         scanf("%s", &option);
-
+    
         if (strcmp((const char*)option, "checkin") == 0) {
             checkIn();
         } else if (strcmp((const char*)option, "checkout") == 0) {
             checkOut();
         } else if (strcmp((const char*)option, "booktable") == 0) {
-            bookTable();
+            bookTable();    
         } else if (strcmp((const char*)option, "quit") == 0) {
             finished = 1;
-        } else {
+        } else if (strcmp((const char*)option, "cls") == 0) {
+            system("cls");
+        } 
+        else {
             print(500, "Action '%s' not recognised\n", option);
         }
     }
     return 0;
 }
+
+/* EOF */
